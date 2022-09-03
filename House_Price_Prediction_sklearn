@@ -1,0 +1,272 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/S0nd0s/house/blob/main/House_Price_Prediction_sklearn\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "vwyb2Q5bqjrG"
+      },
+      "source": [
+        "## Linear Regression\n",
+        "An estimator is any model that tries to estimate a variable y from another variable(s) x given pairs of data (x<sub>1</sub>,y<sub>1</sub>),(x<sub>2</sub>,y<sub>2</sub>),...,(x<sub>N</sub>,y<sub>N</sub>)\n",
+        "\n",
+        "Regression is when the targets (y) are quantities (not cat vs dog but rather price of a house)\n",
+        "\n",
+        "An example would be trying to guess how many people will buy icecream from a shop at any day given the temprature on that day. In this case, the target is the number of icecream people will buy, it is an integer and any value (ex: 14 icecreams) doesn't represent a particular class, so it will be represented as a regression problem. In this case, it turns out that x is also a quantity (temprature); however, this is not necessary and is tackled by approaches other than linear regression.\n",
+        "\n",
+        "To estimate the price of the icecream from temperature we gather the data on various days from various different places and get the following data.\n",
+        "\n",
+        "\n",
+        "\n",
+        "We can see that a line (could  also be a curve) could fit the data, but how can we find which line exactly.\n",
+        "\n",
+        "#### Line Equation Review\n",
+        "A line in 2D can be parametrized using a slope m and a y-intercept b which would result in it having an equation\n",
+        "\n",
+        "$$y = mx+b$$\n",
+        "\n",
+        "In the example of the icecream, if the temperature at a day was 30, our prediction for the number of icecreams sold would be m\\*30 + b, so we simply need to find m and b.\n",
+        "\n",
+        "#### Squared Loss\n",
+        "We need some measurement of how good our line is to be able to find the \"best\" line, so we will measure the difference between our predictions and the correct values from the data.\n",
+        "\n",
+        "\n",
+        "Then, we will square all the differences and add them up. This will be the value we try to minimize.\n",
+        "\n",
+        "#### Note\n",
+        "The normal equation will probably not work. It is left for you to figure it out and let everyone else know, let's see who figures it out first (it's a tricky issue).\n",
+        "\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "m9lFzeq_qjrU"
+      },
+      "outputs": [],
+      "source": [
+        "import numpy as np\n",
+        "import pandas as pd\n",
+        "import seaborn as sns\n",
+        "import matplotlib.pyplot as plt\n",
+        "%matplotlib inline\n",
+        "from sklearn.linear_model import LinearRegression\n",
+        "from sklearn.model_selection import train_test_split, cross_val_score\n",
+        "from sklearn.metrics import mean_squared_error\n",
+        "from sklearn.model_selection import train_test_split"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "x7AJNG8lqjrc"
+      },
+      "source": [
+        "### Import the data and remove useless columns"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "j6piU9Wkqjrd"
+      },
+      "outputs": [],
+      "source": [
+        "df = pd.read_csv(\"train.csv\")\n",
+        "df.drop(columns=[\"Id\"],inplace=True)\n",
+        "df.head()\n",
+        "x = df[['Avg. Area Income', 'Avg. Area House Age', 'Avg. Area Number of Rooms',\n",
+        "\n",
+        "       'Avg. Area Number of Bedrooms', 'Area Population']]\n",
+        "\n",
+        "y = df['Price']"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "A4N11o5yqjre"
+      },
+      "source": [
+        "### Handle the missing data (NaNs)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "Y5uaHGzCqjrf"
+      },
+      "outputs": [],
+      "source": [
+        "df.drop(columns=df.columns[df.isnull().sum().values>200],inplace=True)\n",
+        "df.dropna(inplace=True)\n",
+        "df.isnull().sum().values"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "F7HGfjcfqjrg"
+      },
+      "source": [
+        "### Replace categorical data (strings) with numerical values"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "tvTdHET7qjrh"
+      },
+      "outputs": [],
+      "source": [
+        "obj_to_replace = df[\"MSZoning\"].dtype\n",
+        "\n",
+        "for column in df.columns:\n",
+        "    if df[column].dtype == obj_to_replace:\n",
+        "        uniques = np.unique(df[column].values)\n",
+        "        for idx,item in enumerate(uniques):\n",
+        "            df[column] = df[column].replace(item,idx)\n",
+        "            \n",
+        "df.head()"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "pkqxHW_nqjri"
+      },
+      "source": [
+        "### Add the bias column (column of ones)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "2TF8qnQRqjrj"
+      },
+      "outputs": [],
+      "source": [
+        "df[\"bias\"] = np.ones(df.shape[0])\n",
+        "df.head()"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "tRWLcaczqjrk"
+      },
+      "source": [
+        "### Divide the data into training, testing, X, and y"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "tXLPVfuoqjrl"
+      },
+      "outputs": [],
+      "source": [
+        "from sklearn.model_selection import train_test_split\n",
+        "\n",
+        "x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = 0.3)\n",
+        "\n"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "ifqKAKNaqjrl"
+      },
+      "source": [
+        "### Train the linear regressor"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Xm20BklAqjrm"
+      },
+      "source": [
+        "### Train using the sklearn linear regressor"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "G7ya9dDiqjrn"
+      },
+      "outputs": [],
+      "source": [
+        "from sklearn.linear_model import LinearRegression\n",
+        "\n",
+        "model = LinearRegression()\n",
+        "\n",
+        "model.fit(x_train, y_train)\n",
+        "\n",
+        "print(model.coef_)\n",
+        "\n",
+        "print(model.intercept_)\n",
+        "\n",
+        "pd.DataFrame(model.coef_, x.columns, columns = ['Coeff'])\n",
+        "\n",
+        "predictions = model.predict(x_test)\n",
+        "\n",
+        "# plt.scatter(y_test, predictions)\n",
+        "\n",
+        "plt.hist(y_test - predictions)\n",
+        "\n",
+        "from sklearn import metrics\n",
+        "\n",
+        "metrics.mean_absolute_error(y_test, predictions)\n",
+        "\n",
+        "metrics.mean_squared_error(y_test, predictions)\n",
+        "\n",
+        "np.sqrt(metrics.mean_squared_error(y_test, predictions))\n",
+        "\n",
+        "\n"
+      ]
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "file_extension": ".py",
+      "mimetype": "text/x-python",
+      "name": "python",
+      "nbconvert_exporter": "python",
+      "pygments_lexer": "ipython3",
+      "version": "3.7.9"
+    },
+    "colab": {
+      "provenance": [],
+      "include_colab_link": true
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 0
+}
